@@ -376,6 +376,22 @@
 
   .tag.topic { border-left: 3px solid var(--accent); }
   .tag.subtopic { border-left: 3px solid var(--green); }
+  .tag.source { border-left: 3px solid #a78bfa; }
+
+  .seen-pct {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    flex-shrink: 0;
+    color: var(--text-dim);
+    background: var(--surface2);
+  }
+
+  .seen-pct.complete {
+    color: var(--green);
+    background: rgba(34,197,94,0.15);
+    font-weight: 600;
+  }
 
   .card-question {
     font-size: 1.05rem;
@@ -509,6 +525,7 @@
         <div class="card-meta">
           <span class="tag topic" id="q-topic"></span>
           <span class="tag subtopic" id="q-subtopic"></span>
+          <span class="tag source" id="q-source"></span>
         </div>
         <div class="card-marks">
           <button class="mark-btn star" id="star-btn" title="Star this question">&#9733;</button>
@@ -544,6 +561,7 @@
 
   let starred = loadSet('fc_starred');
   let difficult = loadSet('fc_difficult');
+  let seen = loadSet('fc_seen');
 
   function toggleMark(set, key, storageKey) {
     if (set.has(key)) set.delete(key); else set.add(key);
@@ -580,6 +598,7 @@
   const progressFill = document.getElementById('progress-fill');
   const qTopic = document.getElementById('q-topic');
   const qSubtopic = document.getElementById('q-subtopic');
+  const qSource = document.getElementById('q-source');
   const qQuestion = document.getElementById('q-question');
   const qAnswer = document.getElementById('q-answer');
   const qNotes = document.getElementById('q-notes');
@@ -639,6 +658,12 @@
       const topicCount = subtopics.reduce((s, st) => s + tree[topic][st], 0);
       const tid = 't_' + slug(topic);
 
+      // Compute seen % for topic
+      const topicCards = CARDS.filter(c => c.topic === topic);
+      const topicSeen = topicCards.filter(c => seen.has(cardKey(c))).length;
+      const topicPct = topicCount > 0 ? Math.round(topicSeen / topicCount * 100) : 0;
+      const topicPctClass = topicPct === 100 ? 'seen-pct complete' : 'seen-pct';
+
       const group = document.createElement('div');
       group.className = 'topic-group';
 
@@ -648,6 +673,7 @@
         <span class="arrow">&#9654;</span>
         <input type="checkbox" id="${tid}" checked>
         <label for="${tid}">${topic}</label>
+        <span class="${topicPctClass}" data-seen-topic="${topic}">${topicPct}%</span>
         <span class="badge">${topicCount}</span>
       `;
       group.appendChild(header);
@@ -657,11 +683,16 @@
 
       subtopics.forEach(st => {
         const sid = 'st_' + slug(topic) + '_' + slug(st);
+        const stCards = CARDS.filter(c => c.topic === topic && c.subtopic === st);
+        const stSeen = stCards.filter(c => seen.has(cardKey(c))).length;
+        const stPct = stCards.length > 0 ? Math.round(stSeen / stCards.length * 100) : 0;
+        const stPctClass = stPct === 100 ? 'seen-pct complete' : 'seen-pct';
         const item = document.createElement('div');
         item.className = 'subtopic-item';
         item.innerHTML = `
           <input type="checkbox" id="${sid}" data-topic="${topic}" data-subtopic="${st}" checked>
           <label for="${sid}">${st}</label>
+          <span class="${stPctClass}" data-seen-st="${topic}|||${st}">${stPct}%</span>
           <span class="badge">${tree[topic][st]}</span>
         `;
         stList.appendChild(item);
@@ -771,6 +802,25 @@
     difficultTotal.textContent = difficult.size;
   }
 
+  function updateSeenBadges() {
+    document.querySelectorAll('[data-seen-topic]').forEach(el => {
+      const topic = el.dataset.seenTopic;
+      const topicCards = CARDS.filter(c => c.topic === topic);
+      const s = topicCards.filter(c => seen.has(cardKey(c))).length;
+      const pct = topicCards.length > 0 ? Math.round(s / topicCards.length * 100) : 0;
+      el.textContent = pct + '%';
+      el.className = pct === 100 ? 'seen-pct complete' : 'seen-pct';
+    });
+    document.querySelectorAll('[data-seen-st]').forEach(el => {
+      const [topic, st] = el.dataset.seenSt.split('|||');
+      const stCards = CARDS.filter(c => c.topic === topic && c.subtopic === st);
+      const s = stCards.filter(c => seen.has(cardKey(c))).length;
+      const pct = stCards.length > 0 ? Math.round(s / stCards.length * 100) : 0;
+      el.textContent = pct + '%';
+      el.className = pct === 100 ? 'seen-pct complete' : 'seen-pct';
+    });
+  }
+
   function updateSpecialBadges() {
     document.querySelectorAll('[data-badge]').forEach(badge => {
       const input = document.getElementById(badge.dataset.badge);
@@ -865,6 +915,7 @@
     topbarCounter.textContent = '';
     updateFilterCounts();
     updateSpecialBadges();
+    updateSeenBadges();
     updateCount();
   });
 
@@ -878,6 +929,8 @@
 
     qTopic.textContent = c.topic;
     qSubtopic.textContent = c.subtopic;
+    qSource.textContent = c.source || '';
+    qSource.style.display = c.source ? 'inline' : 'none';
     qQuestion.textContent = c.question;
     qAnswer.textContent = c.answer;
     qAnswer.classList.remove('visible');
@@ -905,6 +958,12 @@
     revealBtn.style.display = 'none';
     nextBtn.style.display = 'inline-flex';
     answerRevealed = true;
+    // Mark as seen
+    const key = cardKey(deck[idx]);
+    if (!seen.has(key)) {
+      seen.add(key);
+      saveSet('fc_seen', seen);
+    }
   });
 
   nextBtn.addEventListener('click', () => {

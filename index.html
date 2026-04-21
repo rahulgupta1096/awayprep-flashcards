@@ -18,6 +18,8 @@
     --accent-hover: #2563eb;
     --green: #22c55e;
     --red: #ef4444;
+    --yellow: #eab308;
+    --orange: #f97316;
   }
 
   body {
@@ -111,6 +113,8 @@
 
   .btn-full { width: 100%; }
 
+  .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+
   /* ── App layout ── */
   #app { display: none; }
 
@@ -151,6 +155,47 @@
   .picker-header h2 { font-size: 1.2rem; }
 
   .picker-actions { display: flex; gap: 0.5rem; }
+
+  /* ── Filter buttons ── */
+  .filter-bar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text-dim);
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+
+  .filter-btn:hover { background: var(--surface2); }
+
+  .filter-btn.active {
+    border-color: var(--accent);
+    color: var(--text);
+    background: rgba(59,130,246,0.12);
+  }
+
+  .filter-btn .icon { font-size: 1rem; }
+  .filter-btn .filter-count {
+    background: var(--surface2);
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+  }
+
+  .filter-btn.active .filter-count { background: rgba(59,130,246,0.25); }
 
   .topic-group {
     background: var(--surface);
@@ -270,12 +315,51 @@
     margin-bottom: 1rem;
   }
 
+  .card-top-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
   .card-meta {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
-    margin-bottom: 1rem;
+    flex: 1;
   }
+
+  .card-marks {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .mark-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1.15rem;
+    transition: all 0.15s;
+    opacity: 0.4;
+  }
+
+  .mark-btn:hover { background: var(--surface2); opacity: 0.7; }
+
+  .mark-btn.active {
+    opacity: 1;
+    border-color: transparent;
+  }
+
+  .mark-btn.star.active { background: rgba(234,179,8,0.2); }
+  .mark-btn.difficult.active { background: rgba(249,115,22,0.2); }
 
   .tag {
     background: var(--surface2);
@@ -359,6 +443,7 @@
     .topbar h1 { font-size: 0.95rem; }
     .card { padding: 1.15rem; }
     .card-question { font-size: 0.98rem; }
+    .mark-btn { width: 32px; height: 32px; font-size: 1rem; }
   }
 </style>
 </head>
@@ -381,7 +466,7 @@
     <h1>Flashcards</h1>
     <div class="topbar-right">
       <span class="counter" id="topbar-counter"></span>
-      <button class="btn btn-outline" id="back-to-topics" style="display:none; padding:0.4rem 0.8rem; font-size:0.85rem;">Topics</button>
+      <button class="btn btn-outline btn-sm" id="back-to-topics" style="display:none;">Topics</button>
     </div>
   </div>
 
@@ -390,10 +475,20 @@
     <div class="picker-header">
       <h2>Select Topics</h2>
       <div class="picker-actions">
-        <button class="btn btn-outline" id="select-all" style="padding:0.4rem 0.8rem; font-size:0.85rem;">Select All</button>
-        <button class="btn btn-outline" id="deselect-all" style="padding:0.4rem 0.8rem; font-size:0.85rem;">Deselect All</button>
+        <button class="btn btn-outline btn-sm" id="select-all">Select All</button>
+        <button class="btn btn-outline btn-sm" id="deselect-all">Deselect All</button>
       </div>
     </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn" id="filter-starred">
+        <span class="icon">&#9733;</span> Starred <span class="filter-count" id="starred-total">0</span>
+      </button>
+      <button class="filter-btn" id="filter-difficult">
+        <span class="icon">&#63;</span> Difficult <span class="filter-count" id="difficult-total">0</span>
+      </button>
+    </div>
+
     <div id="topic-list"></div>
     <div class="start-bar">
       <span class="count" id="selected-count">0 questions selected</span>
@@ -405,15 +500,22 @@
   <div id="quiz-screen">
     <div class="progress-bar"><div class="fill" id="progress-fill"></div></div>
     <div class="card">
-      <div class="card-meta">
-        <span class="tag topic" id="q-topic"></span>
-        <span class="tag subtopic" id="q-subtopic"></span>
+      <div class="card-top-row">
+        <div class="card-meta">
+          <span class="tag topic" id="q-topic"></span>
+          <span class="tag subtopic" id="q-subtopic"></span>
+        </div>
+        <div class="card-marks">
+          <button class="mark-btn star" id="star-btn" title="Star this question">&#9733;</button>
+          <button class="mark-btn difficult" id="difficult-btn" title="Mark as difficult">&#63;</button>
+        </div>
       </div>
       <div class="card-question" id="q-question"></div>
       <div class="card-answer" id="q-answer"></div>
       <div class="card-notes" id="q-notes"></div>
     </div>
     <div class="quiz-actions">
+      <button class="btn btn-outline" id="prev-btn" style="display:none;">Back</button>
       <button class="btn btn-primary" id="reveal-btn">Reveal Answer</button>
       <button class="btn btn-green" id="next-btn" style="display:none;">Next</button>
     </div>
@@ -423,10 +525,31 @@
 <script src="cards.js"></script>
 <script>
 (function() {
+  // ── Unique key for each card ──
+  function cardKey(c) {
+    return c.topic + '|||' + c.subtopic + '|||' + c.question;
+  }
+
+  // ── Persistent marks (localStorage) ──
+  function loadSet(key) {
+    try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); }
+    catch { return new Set(); }
+  }
+  function saveSet(key, s) { localStorage.setItem(key, JSON.stringify([...s])); }
+
+  let starred = loadSet('fc_starred');
+  let difficult = loadSet('fc_difficult');
+
+  function toggleMark(set, key, storageKey) {
+    if (set.has(key)) set.delete(key); else set.add(key);
+    saveSet(storageKey, set);
+  }
+
   // ── State ──
   let deck = [];
   let idx = 0;
   let answerRevealed = false;
+  let filterMode = null; // null, 'starred', 'difficult'
 
   // ── Elements ──
   const loginScreen = document.getElementById('login-screen');
@@ -441,6 +564,10 @@
   const deselectAllBtn = document.getElementById('deselect-all');
   const selectedCount = document.getElementById('selected-count');
   const startBtn = document.getElementById('start-btn');
+  const filterStarredBtn = document.getElementById('filter-starred');
+  const filterDifficultBtn = document.getElementById('filter-difficult');
+  const starredTotal = document.getElementById('starred-total');
+  const difficultTotal = document.getElementById('difficult-total');
 
   const quizScreen = document.getElementById('quiz-screen');
   const backBtn = document.getElementById('back-to-topics');
@@ -453,6 +580,9 @@
   const qNotes = document.getElementById('q-notes');
   const revealBtn = document.getElementById('reveal-btn');
   const nextBtn = document.getElementById('next-btn');
+  const prevBtn = document.getElementById('prev-btn');
+  const starBtn = document.getElementById('star-btn');
+  const difficultBtn = document.getElementById('difficult-btn');
 
   // ── Auth ──
   const PASS = 'rgdabest';
@@ -480,6 +610,7 @@
     loginScreen.style.display = 'none';
     app.style.display = 'block';
     buildTopicPicker();
+    updateFilterCounts();
   }
 
   // ── Build topic/subtopic tree ──
@@ -506,7 +637,6 @@
       const group = document.createElement('div');
       group.className = 'topic-group';
 
-      // Header
       const header = document.createElement('div');
       header.className = 'topic-header';
       header.innerHTML = `
@@ -517,7 +647,6 @@
       `;
       group.appendChild(header);
 
-      // Subtopic list
       const stList = document.createElement('div');
       stList.className = 'subtopic-list';
 
@@ -536,7 +665,6 @@
       group.appendChild(stList);
       topicList.appendChild(group);
 
-      // Toggle expand
       const arrow = header.querySelector('.arrow');
       header.addEventListener('click', e => {
         if (e.target.tagName === 'INPUT') return;
@@ -544,14 +672,12 @@
         arrow.classList.toggle('open', open);
       });
 
-      // Topic checkbox controls subtopics
       const topicCb = header.querySelector('input');
       topicCb.addEventListener('change', () => {
         stList.querySelectorAll('input').forEach(cb => { cb.checked = topicCb.checked; });
         updateCount();
       });
 
-      // Subtopic checkboxes update topic
       stList.querySelectorAll('input').forEach(cb => {
         cb.addEventListener('change', () => {
           const all = stList.querySelectorAll('input');
@@ -569,11 +695,20 @@
   function slug(s) { return s.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase(); }
 
   function getSelectedCards() {
-    const selected = new Set();
-    document.querySelectorAll('.subtopic-item input:checked').forEach(cb => {
-      selected.add(cb.dataset.topic + '|||' + cb.dataset.subtopic);
-    });
-    return CARDS.filter(c => selected.has(c.topic + '|||' + c.subtopic));
+    let cards;
+
+    if (filterMode === 'starred') {
+      cards = CARDS.filter(c => starred.has(cardKey(c)));
+    } else if (filterMode === 'difficult') {
+      cards = CARDS.filter(c => difficult.has(cardKey(c)));
+    } else {
+      const selected = new Set();
+      document.querySelectorAll('.subtopic-item input:checked').forEach(cb => {
+        selected.add(cb.dataset.topic + '|||' + cb.dataset.subtopic);
+      });
+      cards = CARDS.filter(c => selected.has(c.topic + '|||' + c.subtopic));
+    }
+    return cards;
   }
 
   function updateCount() {
@@ -581,6 +716,50 @@
     selectedCount.textContent = n + ' question' + (n !== 1 ? 's' : '') + ' selected';
     startBtn.disabled = n === 0;
     startBtn.style.opacity = n === 0 ? '0.4' : '1';
+  }
+
+  function updateFilterCounts() {
+    starredTotal.textContent = starred.size;
+    difficultTotal.textContent = difficult.size;
+  }
+
+  // ── Filter buttons ──
+  filterStarredBtn.addEventListener('click', () => {
+    if (filterMode === 'starred') {
+      filterMode = null;
+      filterStarredBtn.classList.remove('active');
+      setTopicCheckboxesEnabled(true);
+    } else {
+      filterMode = 'starred';
+      filterStarredBtn.classList.add('active');
+      filterDifficultBtn.classList.remove('active');
+      setTopicCheckboxesEnabled(false);
+    }
+    updateCount();
+  });
+
+  filterDifficultBtn.addEventListener('click', () => {
+    if (filterMode === 'difficult') {
+      filterMode = null;
+      filterDifficultBtn.classList.remove('active');
+      setTopicCheckboxesEnabled(true);
+    } else {
+      filterMode = 'difficult';
+      filterDifficultBtn.classList.add('active');
+      filterStarredBtn.classList.remove('active');
+      setTopicCheckboxesEnabled(false);
+    }
+    updateCount();
+  });
+
+  function setTopicCheckboxesEnabled(enabled) {
+    const opacity = enabled ? '1' : '0.35';
+    topicList.style.opacity = opacity;
+    topicList.style.pointerEvents = enabled ? 'auto' : 'none';
+    selectAllBtn.disabled = !enabled;
+    deselectAllBtn.disabled = !enabled;
+    selectAllBtn.style.opacity = opacity;
+    deselectAllBtn.style.opacity = opacity;
   }
 
   selectAllBtn.addEventListener('click', () => {
@@ -624,6 +803,8 @@
     topicScreen.style.display = 'block';
     backBtn.style.display = 'none';
     topbarCounter.textContent = '';
+    updateFilterCounts();
+    updateCount();
   });
 
   function showCard() {
@@ -632,6 +813,8 @@
       return;
     }
     const c = deck[idx];
+    const key = cardKey(c);
+
     qTopic.textContent = c.topic;
     qSubtopic.textContent = c.subtopic;
     qQuestion.textContent = c.question;
@@ -640,8 +823,14 @@
     qNotes.textContent = c.notes ? 'Note: ' + c.notes : '';
     qNotes.style.display = c.notes ? 'block' : 'none';
 
+    // Mark buttons state
+    starBtn.classList.toggle('active', starred.has(key));
+    difficultBtn.classList.toggle('active', difficult.has(key));
+
+    // Action buttons
     revealBtn.style.display = 'inline-flex';
     nextBtn.style.display = 'none';
+    prevBtn.style.display = idx > 0 ? 'inline-flex' : 'none';
     answerRevealed = false;
 
     topbarCounter.textContent = (idx + 1) + ' / ' + deck.length;
@@ -662,11 +851,32 @@
     showCard();
   });
 
+  prevBtn.addEventListener('click', () => {
+    if (idx > 0) {
+      idx--;
+      showCard();
+    }
+  });
+
+  // ── Star / Difficult buttons ──
+  starBtn.addEventListener('click', () => {
+    const key = cardKey(deck[idx]);
+    toggleMark(starred, key, 'fc_starred');
+    starBtn.classList.toggle('active', starred.has(key));
+  });
+
+  difficultBtn.addEventListener('click', () => {
+    const key = cardKey(deck[idx]);
+    toggleMark(difficult, key, 'fc_difficult');
+    difficultBtn.classList.toggle('active', difficult.has(key));
+  });
+
   function showDone() {
+    const len = deck.length;
     quizScreen.innerHTML = `
       <div class="done-screen">
         <h2>All Done!</h2>
-        <p>You reviewed all ${deck.length} questions.</p>
+        <p>You reviewed all ${len} questions.</p>
         <button class="btn btn-primary" onclick="location.reload()">Start Over</button>
       </div>
     `;
@@ -676,11 +886,23 @@
   // ── Keyboard shortcuts ──
   document.addEventListener('keydown', e => {
     if (quizScreen.style.display !== 'block') return;
+    if (e.target.tagName === 'INPUT') return;
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       if (!answerRevealed) revealBtn.click();
       else nextBtn.click();
     }
+    if (e.key === 'ArrowLeft' && idx > 0) {
+      e.preventDefault();
+      prevBtn.click();
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      if (!answerRevealed) revealBtn.click();
+      else nextBtn.click();
+    }
+    if (e.key === 's' || e.key === 'S') starBtn.click();
+    if (e.key === 'd' || e.key === 'D') difficultBtn.click();
   });
 
   // ── Init ──

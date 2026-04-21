@@ -498,6 +498,7 @@
       <div class="picker-actions">
         <button class="btn btn-outline btn-sm" id="select-all">Select All</button>
         <button class="btn btn-outline btn-sm" id="deselect-all">Deselect All</button>
+        <button class="btn btn-outline btn-sm" id="reset-btn" style="color:var(--red);border-color:var(--red);">Reset</button>
       </div>
     </div>
 
@@ -886,6 +887,20 @@
       cb.indeterminate = false;
     });
     updateCount();
+  });
+
+  // ── Reset ──
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    if (!confirm('Are you sure? This will clear all starred, difficult, and seen progress.')) return;
+    starred.clear(); saveSet('fc_starred', starred);
+    difficult.clear(); saveSet('fc_difficult', difficult);
+    seen.clear(); saveSet('fc_seen', seen);
+    filterMode = null;
+    filterStarredBtn.classList.remove('active');
+    filterDifficultBtn.classList.remove('active');
+    setTopicCheckboxesEnabled(true);
+    buildTopicPicker();
+    updateFilterCounts();
   });
 
   // ── Quiz ──

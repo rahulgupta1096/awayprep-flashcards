@@ -275,6 +275,11 @@
     flex-shrink: 0;
   }
 
+  .special-divider {
+    border-top: 1px solid var(--border);
+    margin: 0.25rem 1rem 0.25rem 2.75rem;
+  }
+
   input[type="checkbox"] {
     width: 18px;
     height: 18px;
@@ -662,6 +667,33 @@
         stList.appendChild(item);
       });
 
+      // Special starred/difficult items per topic
+      const topicCards = CARDS.filter(c => c.topic === topic);
+      const tStarred = topicCards.filter(c => starred.has(cardKey(c))).length;
+      const tDifficult = topicCards.filter(c => difficult.has(cardKey(c))).length;
+
+      const divider = document.createElement('div');
+      divider.className = 'special-divider';
+      stList.appendChild(divider);
+
+      const starItem = document.createElement('div');
+      starItem.className = 'subtopic-item';
+      starItem.innerHTML = `
+        <input type="checkbox" id="${tid}_starred" data-topic="${topic}" data-special="starred">
+        <label for="${tid}_starred"><span style="color:var(--yellow)">&#9733;</span> Starred</label>
+        <span class="badge" data-badge="${tid}_starred">${tStarred}</span>
+      `;
+      stList.appendChild(starItem);
+
+      const diffItem = document.createElement('div');
+      diffItem.className = 'subtopic-item';
+      diffItem.innerHTML = `
+        <input type="checkbox" id="${tid}_difficult" data-topic="${topic}" data-special="difficult">
+        <label for="${tid}_difficult"><span style="color:var(--orange)">&#63;</span> Difficult</label>
+        <span class="badge" data-badge="${tid}_difficult">${tDifficult}</span>
+      `;
+      stList.appendChild(diffItem);
+
       group.appendChild(stList);
       topicList.appendChild(group);
 
@@ -674,18 +706,22 @@
 
       const topicCb = header.querySelector('input');
       topicCb.addEventListener('change', () => {
-        stList.querySelectorAll('input').forEach(cb => { cb.checked = topicCb.checked; });
+        stList.querySelectorAll('input:not([data-special])').forEach(cb => { cb.checked = topicCb.checked; });
         updateCount();
       });
 
-      stList.querySelectorAll('input').forEach(cb => {
+      stList.querySelectorAll('input:not([data-special])').forEach(cb => {
         cb.addEventListener('change', () => {
-          const all = stList.querySelectorAll('input');
-          const checked = stList.querySelectorAll('input:checked');
+          const all = stList.querySelectorAll('input:not([data-special])');
+          const checked = stList.querySelectorAll('input:not([data-special]):checked');
           topicCb.checked = checked.length === all.length;
           topicCb.indeterminate = checked.length > 0 && checked.length < all.length;
           updateCount();
         });
+      });
+
+      stList.querySelectorAll('input[data-special]').forEach(cb => {
+        cb.addEventListener('change', () => updateCount());
       });
     });
 
@@ -695,20 +731,32 @@
   function slug(s) { return s.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase(); }
 
   function getSelectedCards() {
-    let cards;
-
     if (filterMode === 'starred') {
-      cards = CARDS.filter(c => starred.has(cardKey(c)));
-    } else if (filterMode === 'difficult') {
-      cards = CARDS.filter(c => difficult.has(cardKey(c)));
-    } else {
-      const selected = new Set();
-      document.querySelectorAll('.subtopic-item input:checked').forEach(cb => {
-        selected.add(cb.dataset.topic + '|||' + cb.dataset.subtopic);
-      });
-      cards = CARDS.filter(c => selected.has(c.topic + '|||' + c.subtopic));
+      return CARDS.filter(c => starred.has(cardKey(c)));
     }
-    return cards;
+    if (filterMode === 'difficult') {
+      return CARDS.filter(c => difficult.has(cardKey(c)));
+    }
+
+    const selectedSubtopics = new Set();
+    document.querySelectorAll('.subtopic-item input:checked:not([data-special])').forEach(cb => {
+      selectedSubtopics.add(cb.dataset.topic + '|||' + cb.dataset.subtopic);
+    });
+
+    const starredTopics = new Set();
+    const difficultTopics = new Set();
+    document.querySelectorAll('.subtopic-item input[data-special]:checked').forEach(cb => {
+      if (cb.dataset.special === 'starred') starredTopics.add(cb.dataset.topic);
+      else if (cb.dataset.special === 'difficult') difficultTopics.add(cb.dataset.topic);
+    });
+
+    return CARDS.filter(c => {
+      if (selectedSubtopics.has(c.topic + '|||' + c.subtopic)) return true;
+      const key = cardKey(c);
+      if (starredTopics.has(c.topic) && starred.has(key)) return true;
+      if (difficultTopics.has(c.topic) && difficult.has(key)) return true;
+      return false;
+    });
   }
 
   function updateCount() {
@@ -721,6 +769,18 @@
   function updateFilterCounts() {
     starredTotal.textContent = starred.size;
     difficultTotal.textContent = difficult.size;
+  }
+
+  function updateSpecialBadges() {
+    document.querySelectorAll('[data-badge]').forEach(badge => {
+      const input = document.getElementById(badge.dataset.badge);
+      if (!input) return;
+      const topic = input.dataset.topic;
+      const special = input.dataset.special;
+      const topicCards = CARDS.filter(c => c.topic === topic);
+      if (special === 'starred') badge.textContent = topicCards.filter(c => starred.has(cardKey(c))).length;
+      else if (special === 'difficult') badge.textContent = topicCards.filter(c => difficult.has(cardKey(c))).length;
+    });
   }
 
   // ── Filter buttons ──
@@ -763,7 +823,7 @@
   }
 
   selectAllBtn.addEventListener('click', () => {
-    document.querySelectorAll('#topic-list input[type="checkbox"]').forEach(cb => {
+    document.querySelectorAll('#topic-list input[type="checkbox"]:not([data-special])').forEach(cb => {
       cb.checked = true;
       cb.indeterminate = false;
     });
@@ -804,6 +864,7 @@
     backBtn.style.display = 'none';
     topbarCounter.textContent = '';
     updateFilterCounts();
+    updateSpecialBadges();
     updateCount();
   });
 
